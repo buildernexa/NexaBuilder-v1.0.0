@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NexaBuild Dashboard</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=Outfit:wght@700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Icons & ZIP Library -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+    <style>
+        :root {
+            /* TEMA BIRU MINT (TEAL-BLUE) */
+            --bg-color: #e6f7f5;
+            --surface: #ffffff;
+            --primary: #4fd1c5; /* Mint Blue Utama */
+            --secondary: #90cdf4; /* Biru Muda */
+            --accent: #81e6d9; /* Mint Terang */
+            --text-main: #1a202c;
+            --text-muted: #4a5568;
+            --border-width: 2px;
+            --border-color: #2c7a7b; /* Border Teal Gelap */
+            --border-radius: 16px;
+            --pill-radius: 30px;
+            --shadow: 3px 3px 0px var(--border-color);
+            --shadow-hover: 5px 5px 0px var(--border-color);
+            --transition: transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 0.2s ease, box-shadow 0.2s ease;
+            --backdrop: rgba(0,0,0,0.6);
+        }
+
+        /* LIQUID GLASS THEME (GPU OPTIMIZED) */
+        body.theme-glass {
+            --bg-color: transparent;
+            --surface: rgba(255, 255, 255, 0.1);
+            --text-main: #ffffff;
+            --text-muted: rgba(255, 255, 255, 0.7);
+            --border-color: rgba(255, 255, 255, 0.3);
+            --shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            --shadow-hover: 0 12px 40px 0 rgba(0, 0, 0, 0.5);
+            --backdrop: rgba(0,0,0,0.5);
+            color: #ffffff;
+        }
+
+        body.theme-glass .global-bg-video { opacity: 1; visibility: visible; }
+        
+        /* Blur eksklusif untuk wadah utama, mencegah lag GPU */
+        body.theme-glass .glass-container, body.theme-glass .top-bar, body.theme-glass .bottom-nav, body.theme-glass .modal-content, body.theme-glass .drawer, body.theme-glass .dash-card {
+            background: var(--surface) !important;
+            backdrop-filter: blur(10px) saturate(150%);
+            -webkit-backdrop-filter: blur(10px) saturate(150%);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            border-top: 1px solid rgba(255, 255, 255, 0.6);
+            border-left: 1px solid rgba(255, 255, 255, 0.6);
+            box-shadow: var(--shadow); color: #fff;
+        }
+
+        body.theme-glass .neo-btn { background: rgba(255, 255, 255, 0.2) !important; border: 1px solid rgba(255, 255, 255, 0.4); color: #fff; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+        body.theme-glass .neo-btn:hover { background: rgba(255, 255, 255, 0.3) !important; }
+        body.theme-glass .neo-input { background: rgba(0, 0, 0, 0.3) !important; border: 1px solid rgba(255, 255, 255, 0.3); color: #fff; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; text-align: center; }
+        body.theme-glass .neo-input::placeholder { color: rgba(255, 255, 255, 0.6); }
+        body.theme-glass .chat-bubble.me { background: rgba(79, 209, 197, 0.4) !important; border-color: rgba(255,255,255,0.4); }
+        body.theme-glass .chat-bubble.other { background: rgba(255, 255, 255, 0.15) !important; border-color: rgba(255,255,255,0.3); }
+        body.theme-glass .terminal { background: rgba(0, 0, 0, 0.8) !important; border-color: rgba(255, 255, 255, 0.3); backdrop-filter: none !important; }
+
+        /* CORE SYSTEM & ALIGNMENT */
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-color); color: var(--text-main); overflow-x: hidden; display: flex; flex-direction: column; min-height: 100vh; user-select: none; -webkit-touch-callout: none; }
+        .selectable { user-select: text; -webkit-touch-callout: default; }
+        h1, h2, h3, h4, label, .wordmark { font-family: 'Outfit', sans-serif; text-align: center; }
+        
+        /* Rata Tengah Global (Kecuali Chat/Terminal/Quran) */
+        .neo-input { text-align: center; }
+        .term-body, .chat-bubble, #quran-container { text-align: left; }
+        
+        .hidden { display: none !important; }
+
+        /* VIDEOS */
+        .global-bg-video { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: cover; z-index: -10; opacity: 0; visibility: hidden; transition: opacity 0.5s ease; background: #000; }
+        
+        /* BADGES & SEALS */
+        .verified-seal { width: 16px; height: 16px; display: inline-block; vertical-align: middle; margin-left: 4px; filter: drop-shadow(0px 1px 1px rgba(0,0,0,0.2)); }
+        .seal-blue { fill: #1d9bf0; } /* Biru WhatsApp/Twitter */
+        .seal-lemon { fill: #a6e3a1; } /* Hijau Lemon Eksklusif */
+        
+        /* COMPONENTS */
+        .neo-box { background: var(--surface); border: var(--border-width) solid var(--border-color); border-radius: var(--border-radius); box-shadow: var(--shadow); padding: 16px; margin-bottom: 16px; transition: var(--transition); text-align: center; }
+        .neo-btn { background: var(--primary); border: var(--border-width) solid var(--border-color); border-radius: var(--border-radius); box-shadow: var(--shadow); padding: 12px 16px; font-family: 'Inter', sans-serif; font-weight: 700; color: var(--text-main); cursor: pointer; transition: var(--transition); display: inline-flex; align-items: center; justify-content: center; gap: 8px; outline: none; text-align: center; width: 100%; margin-bottom: 8px; }
+        .neo-btn:hover:not(:disabled) { box-shadow: var(--shadow-hover); transform: translate(-2px, -2px); }
+        .neo-btn:active:not(:disabled) { box-shadow: 1px 1px 0px var(--border-color); transform: translate(2px, 2px); }
+        .neo-btn:disabled { background: #cbd5e0; color: #718096; cursor: not-allowed; box-shadow: none; transform: none; border-color: #a0aec0; }
+        .neo-input { width: 100%; padding: 14px; border: var(--border-width) solid var(--border-color); border-radius: var(--border-radius); box-shadow: var(--shadow); font-family: 'Inter', sans-serif; background: var(--surface); color: var(--text-main); outline: none; transition: var(--transition); margin-bottom: 12px; font-weight: 500; }
+        .neo-input:focus { box-shadow: var(--shadow-hover); transform: translate(-2px, -2px); }
+        
+        .file-upload-wrapper { position: relative; overflow: hidden; display: inline-block; width: 100%; }
+        .file-upload-wrapper input[type="file"] { font-size: 100px; position: absolute; left: 0; top: 0; opacity: 0; cursor: pointer; height: 100%; width: 100%; z-index: 10; }
+
+        /* DASHBOARD CARDS (BUG 6) */
+        .dash-grid { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+        .dash-row { display: flex; gap: 12px; width: 100%; }
+        .dash-card { flex: 1; background: var(--surface); border: var(--border-width) solid var(--border-color); border-radius: 16px; padding: 16px 8px; text-align: center; position: relative; box-shadow: var(--shadow); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .dash-card i { margin-bottom: 8px; color: var(--primary); width: 24px; height: 24px; }
+        .dash-val { font-size: 18px; font-weight: 800; margin-bottom: 4px; line-height: 1; }
+        .dash-lbl { font-size: 10px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
+        .dash-badge { position: absolute; top: 8px; right: 8px; font-size: 9px; background: var(--secondary); color: #1c1c1c; padding: 2px 8px; border-radius: 12px; font-weight: 800; border: 1px solid var(--border-color); }
+        
+        /* PROGRESS BARS */
+        .progress-bar { width: 80%; height: 8px; background: rgba(0,0,0,0.1); border-radius: 6px; overflow: hidden; margin-top: 10px; border: 1px solid var(--border-color); }
+        .progress-fill { height: 100%; background: var(--primary); width: 0%; transition: width 0.5s ease; }
+        body.theme-glass .progress-bar { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.4); }
+
+        /* LAYOUT & NAV */
+        .top-bar { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--surface); border: var(--border-width) solid var(--border-color); border-radius: var(--pill-radius); box-shadow: var(--shadow); position: sticky; top: 8px; z-index: 100; margin: 0 8px; transition: var(--transition); }
+        .bottom-nav { position: fixed; bottom: 12px; left: 8px; right: 8px; background: var(--surface); border: var(--border-width) solid var(--border-color); border-radius: var(--pill-radius); box-shadow: var(--shadow); display: flex; justify-content: space-around; padding: 10px; z-index: 100; }
+        .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; color: var(--text-muted); cursor: pointer; transition: var(--transition); width: 60px; }
+        .nav-item.active { color: var(--text-main); }
+        .nav-item.active i { background: var(--primary); color: #1c1c1c; padding: 8px; border-radius: 20px; border: var(--border-width) solid var(--border-color); margin-bottom: -2px; }
+
+        /* SCREENS & TRANSITIONS */
+        .screen { display: none; padding: 16px; padding-bottom: 90px; opacity: 0; transition: opacity 0.3s ease, transform 0.3s ease; transform: translateY(15px); }
+        .screen.active { display: block; opacity: 1; transform: translateY(0); }
+        .app-layer { position: fixed; top:0; left:0; width:100%; height:100%; z-index: 999; background: var(--bg-color); display: flex; flex-direction: column; overflow-y: auto; transition: opacity 0.3s ease; }
+        
+        /* FINGERPRINT GATE (BUG 1) */
+        #gate-screen { justify-content: center; align-items: center; text-align: center; }
+        .fingerprint-btn { width: 120px; height: 160px; margin: 30px auto; background: none; border: none; cursor: pointer; outline: none; position: relative; }
+        .fingerprint-svg { width: 100%; height: 100%; fill: none; stroke: var(--text-main); stroke-width: 4; stroke-linecap: round; opacity: 0.3; }
+        .fingerprint-fill { position: absolute; top:0; left:0; width: 100%; height: 100%; fill: none; stroke: var(--primary); stroke-width: 4; stroke-linecap: round; stroke-dasharray: 1000; stroke-dashoffset: 1000; transition: stroke-dashoffset 0.1s linear; pointer-events: none; }
+
+        /* TERMINAL */
+        .terminal { background: #1a202c; color: #fff; border: var(--border-width) solid var(--border-color); border-radius: var(--border-radius); box-shadow: var(--shadow); overflow: hidden; margin-top: 16px; font-family: 'JetBrains Mono', monospace; text-align: left; }
+        .term-header { background: #2d3748; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #4a5568; }
+        .term-body { padding: 16px; height: 300px; overflow-y: auto; font-size: 12px; line-height: 1.6; }
+        
+        /* MODALS */
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--backdrop); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+        .modal-overlay.open { opacity: 1; pointer-events: auto; }
+        .modal-content { background: var(--surface); border: var(--border-width) solid var(--border-color); border-radius: var(--border-radius); box-shadow: var(--shadow); width: 100%; max-width: 400px; padding: 24px; position: relative; transform: scale(0.95); transition: transform 0.2s; max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; text-align: center; }
+        .modal-overlay.open .modal-content { transform: scale(1); }
+        .drawer { position: fixed; top: 0; left: -100%; bottom: 0; width: 80%; max-width: 320px; background: var(--surface); transition: left 0.3s ease; display: flex; flex-direction: column; z-index: 1001; padding: 0; border-right: var(--border-width) solid var(--border-color); }
+        #modal-quran .modal-content { max-width: 100%; height: 100vh; border-radius: 0; border: none; box-shadow: none; padding: 0; text-align: left; }
+    </style>
+</head>
+<body class="theme-neo">
+    <!-- SVG Seal Definition (Gaya Bertekstur) -->
+    <svg style="display:none;">
+        <defs>
+            <g id="icon-verified-seal">
+                <!-- Outer jagged seal -->
+                <path d="M12 1.5l2.6 1.8 3.1-.9 1.1 3.1 3 1.3-1 3.1 1.7 2.7-2.2 2.4 1 3.1-3 1.3-1.1 3.1-3.1-.9L12 22.5l-2.6-1.8-3.1.9-1.1-3.1-3-1.3 1-3.1-1.7-2.7 2.2-2.4-1-3.1 3-1.3 1.1-3.1 3.1.9L12 1.5z"/>
+                <!-- Inner checkmark -->
+                <path d="M8.5 12.5l2.5 2.5 5-5" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            </g>
+        </defs>
+    </svg>
+
+    <!-- Global Glass Background (Bug 2 & 7 Fixed) -->
+    <video class="global-bg-video" id="glass-video" loop playsinline>
+        <source src="assets/videos/liquidglass-bg.mp4" type="video/mp4">
+    </video>
+
+    <!-- LAYER 1: GATE (BUG 1 FIXED - Fingerprint SVG Animasi Garis Nyata) -->
+    <div id="gate-screen" class="app-layer">
+        <h2 style="margin-bottom: 8px; margin-top:15vh;">Akses Teramankan</h2>
+        <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 40px;">Tekan dan tahan pada sidik jari</p>
+        <div class="fingerprint-btn" id="fp-area">
+            <!-- Base Faded Fingerprint -->
+            <svg class="fingerprint-svg" viewBox="0 0 100 130">
+                <path d="M50 15 C30 15 15 35 15 65 C15 95 30 115 50 115 C70 115 85 95 85 65 C85 50 75 35 60 25" />
+                <path d="M40 35 C30 45 30 75 40 85 C45 90 55 90 60 85" />
+                <path d="M60 45 C70 55 70 75 60 85" />
+                <path d="M50 50 L50 95" />
+                <path d="M25 50 C25 20 75 20 75 50" />
+            </svg>
+            <!-- Filling Fingerprint -->
+            <svg class="fingerprint-fill" id="fp-fill" viewBox="0 0 100 130">
+                <path d="M50 15 C30 15 15 35 15 65 C15 95 30 115 50 115 C70 115 85 95 85 65 C85 50 75 35 60 25" />
+                <path d="M40 35 C30 45 30 75 40 85 C45 90 55 90 60 85" />
+                <path d="M60 45 C70 55 70 75 60 85" />
+                <path d="M50 50 L50 95" />
+                <path d="M25 50 C25 20 75 20 75 50" />
+            </svg>
+        </div>
+    </div>
+    <!-- LAYER 2: AUTH SCREEN (BUG 2 FIXED - Form Daftar Selalu Dirender) -->
+    <div id="auth-screen" class="app-layer hidden" style="padding: 24px; justify-content: center; align-items:center;">
+        <div class="neo-box glass-container" style="max-width: 400px; width: 100%;">
+            <div style="display:flex; margin-bottom:20px; border-bottom:var(--border-width) solid var(--border-color);">
+                <div class="neo-btn" style="flex:1; border:none; box-shadow:none; border-bottom:4px solid var(--text-main); border-radius:0; background:none; color:var(--text-main);" id="tab-btn-login" onclick="ui.switchAuthTab('login')">Masuk</div>
+                <div class="neo-btn" style="flex:1; border:none; box-shadow:none; border-bottom:4px solid transparent; border-radius:0; background:none; color:var(--text-muted);" id="tab-btn-register" onclick="ui.switchAuthTab('register')">Daftar</div>
+            </div>
+
+            <!-- Login Form -->
+            <div id="auth-login">
+                <input type="text" id="login-user" class="neo-input selectable" placeholder="Username NexaBuild">
+                <input type="password" id="login-pass" class="neo-input selectable" placeholder="Password">
+                <button class="neo-btn" onclick="authModule.login()" id="btn-login">Masuk</button>
+            </div>
+
+            <!-- Register Form -->
+            <div id="auth-register" class="hidden">
+                <input type="text" id="reg-user" class="neo-input selectable" placeholder="Username (Unik / Invite)">
+                <input type="password" id="reg-pass1" class="neo-input selectable" placeholder="Password">
+                <input type="password" id="reg-pass2" class="neo-input selectable" placeholder="Konfirmasi Password">
+                
+                <div class="file-upload-wrapper" style="margin-bottom:12px;">
+                    <button class="neo-btn" style="background:var(--secondary); color:#1a202c; pointer-events:none;"><i data-lucide="image"></i> Upload Avatar (Opsional)</button>
+                    <input type="file" id="reg-avatar" accept="image/*">
+                </div>
+                
+                <div style="border-top: 2px dashed var(--border-color); padding-top: 16px; margin-bottom: 16px;">
+                    <h4 style="margin-bottom: 8px;">Hubungkan Build Engine</h4>
+                    <input type="text" id="reg-gh-token" class="neo-input selectable" placeholder="Token GitHub (ghp_...)">
+                    <input type="text" id="reg-gh-owner" class="neo-input selectable" placeholder="Owner (Username GitHub)">
+                    <input type="text" id="reg-gh-repo" class="neo-input selectable" placeholder="Nama Repositori">
+                </div>
+                <button class="neo-btn" onclick="authModule.register()" id="btn-register">Daftar Akun</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- LAYER 3: INTRO SCREEN (BUG 4 FIXED - Teks & Tombol Bersih) -->
+    <div id="intro-screen" class="app-layer hidden" style="background:#000;">
+        <video class="intro-video" loop playsinline id="intro-vid-el">
+            <source src="assets/videos/intro.mp4" type="video/mp4">
+        </video>
+        <div style="position: absolute; top:0; left:0; width:100%; height:100%; background: linear-gradient(to top, rgba(0,0,0,0.8), transparent); z-index: 1; display: flex; flex-direction: column; justify-content: flex-end; padding: 40px 24px;">
+            <!-- Hanya Wordmark -->
+            <h1 style="font-family: 'Outfit'; font-size: 56px; color: #fff; mix-blend-mode: overlay; line-height: 1; margin-bottom: 30px;">NexaBuild</h1>
+            <div style="display:flex; justify-content:flex-end;">
+                <!-- Tombol dengan teks Lanjut -->
+                <button class="neo-btn" style="background:#fff; color:#000; width:auto; padding:12px 24px; font-size:16px;" onclick="authModule.finishIntro()">Lanjut <i data-lucide="arrow-right"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN DASHBOARD -->
+    <div id="main-app" class="hidden">
+        
+        <header class="top-bar">
+            <div onclick="ui.toggleDrawer()" style="cursor:pointer; padding:4px;"><i data-lucide="menu"></i></div>
+            <div>
+                <div class="wordmark" id="top-title-en" style="font-size: 20px; line-height:1;">NexaBuild</div>
+                <div id="top-title-id" style="font-size: 11px; color:var(--text-muted); font-weight: 600;">Beranda</div>
+            </div>
+            <div style="padding:4px;"><i data-lucide="box"></i></div>
+        </header>
+
+        <!-- DRAWER SETTINGS -->
+        <div class="modal-overlay" id="drawer-overlay" onclick="ui.toggleDrawer()">
+            <div class="drawer" onclick="event.stopPropagation()">
+                <div style="padding: 24px; border-bottom: var(--border-width) solid var(--border-color); background: var(--accent);">
+                    <h2 class="wordmark" style="color:#1a202c;">Pengaturan</h2>
+                </div>
+                <div style="padding: 16px; flex: 1; overflow-y: auto; display:flex; flex-direction:column; gap:8px;">
+                    <button class="neo-btn" style="background:var(--surface);" onclick="ui.openModal('modal-theme')">Tampilan & Tema</button>
+                    <button class="neo-btn" style="background:var(--surface);" onclick="ui.openModal('modal-github')">Build Engine (GitHub)</button>
+                    <button class="neo-btn" style="background:var(--surface);" onclick="ui.openModal('modal-profile')">Profil Akun</button>
+                    <button class="neo-btn" style="background:var(--surface);" onclick="ui.openModal('modal-keystore')">Setup Keystore</button>
+                    <button class="neo-btn" style="background:var(--surface);" onclick="ui.openModal('modal-chat-config')">Konfigurasi Chat</button>
+                    
+                    <div id="dev-menu-area" class="hidden">
+                        <hr style="margin:16px 0; border:1px dashed var(--border-color);">
+                        <button class="neo-btn" style="background:var(--warning);" onclick="ui.openModal('modal-create-acc')">Buat Akun (Invite)</button>
+                    </div>
+                </div>
+                <div style="padding: 16px; border-top: var(--border-width) solid var(--border-color);">
+                    <button class="neo-btn" style="background:#f38ba8; color:#1a202c;" onclick="authModule.logout()">Keluar (Logout)</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- REUSABLE MODALS -->
+        <div class="modal-overlay" id="modal-dialog">
+            <div class="modal-content">
+                <h3 id="dialog-title" style="margin-bottom:12px;">Info</h3>
+                <p id="dialog-msg" style="margin-bottom:24px; font-size:14px; color:var(--text-muted);"></p>
+                <div style="display:flex; gap:12px; justify-content:center;">
+                    <button class="neo-btn" id="btn-dialog-cancel" style="background:#cbd5e0; color:#1a202c; display:none;" onclick="ui.resolveDialog(false)">Batal</button>
+                    <button class="neo-btn" id="btn-dialog-ok" onclick="ui.resolveDialog(true)">OK</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-overlay" id="modal-theme">
+            <div class="modal-content">
+                <div style="display:flex; justify-content:space-between; margin-bottom:20px;"><h3>Tema Dashboard</h3><i data-lucide="x" onclick="ui.closeModal('modal-theme')" style="cursor:pointer;"></i></div>
+                <div class="neo-box glass-container" style="display:flex; justify-content:space-between; align-items:center; padding:20px;">
+                    <div><b style="font-size:16px;">Liquid Glass</b><div style="font-size:11px; color:var(--text-muted);">UI Transparan + Video</div></div>
+                    <input type="checkbox" id="switch-theme" onchange="ui.applyTheme(this.checked)" style="transform:scale(1.8);">
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-overlay" id="modal-github">
+            <div class="modal-content">
+                <div style="display:flex; justify-content:space-between; margin-bottom:20px;"><h3>Build Engine</h3><i data-lucide="x" onclick="ui.closeModal('modal-github')" style="cursor:pointer;"></i></div>
+                <input type="text" id="cfg-gh-token" class="neo-input selectable" placeholder="Token GitHub">
+                <input type="text" id="cfg-gh-owner" class="neo-input selectable" placeholder="Owner (Username)">
+                <input type="text" id="cfg-gh-repo" class="neo-input selectable" placeholder="Repository">
+                <button class="neo-btn" onclick="settingsModule.saveGitHub()">Simpan Engine</button>
+            </div>
+        </div>
+
+        <div class="modal-overlay" id="modal-profile">
+            <div class="modal-content">
+                <div style="display:flex; justify-content:space-between; margin-bottom:20px;"><h3>Profil Akun</h3><i data-lucide="x" onclick="ui.closeModal('modal-profile')" style="cursor:pointer;"></i></div>
+                <div style="text-align:center; margin-bottom:16px;"><img id="cfg-avatar-img" src="" style="width:80px; height:80px; border-radius:50%; border:2px solid var(--border-color); object-fit:cover; background:#fff;"></div>
+                <input type="text" id="cfg-profile-name" class="neo-input selectable" readonly style="opacity:0.7;">
+                <div class="file-upload-wrapper">
+                    <button class="neo-btn"><i data-lucide="image"></i> Ubah Avatar</button>
+                    <input type="file" accept="image/*" onchange="settingsModule.updateAvatar(this)">
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-overlay" id="modal-keystore">
+            <div class="modal-content">
+                <div style="display:flex; justify-content:space-between; margin-bottom:20px;"><h3>Setup Keystore</h3><i data-lucide="x" onclick="ui.closeModal('modal-keystore')" style="cursor:pointer;"></i></div>
+                <input type="text" class="neo-input selectable" placeholder="Alias Name">
+                <input type="password" class="neo-input selectable" placeholder="Keystore Password">
+                <button class="neo-btn" onclick="ui.alert('Keystore akan di-generate otomatis oleh sistem Actions saat Zipalign.')">Simpan Keystore</button>
+            </div>
+        </div>
+
+        <div class="modal-overlay" id="modal-chat-config">
+            <div class="modal-content">
+                <div style="display:flex; justify-content:space-between; margin-bottom:20px;"><h3>Chat Config</h3><i data-lucide="x" onclick="ui.closeModal('modal-chat-config')" style="cursor:pointer;"></i></div>
+                <input type="number" id="cfg-chat-issue" class="neo-input selectable" placeholder="Nomor Issue (Contoh: 1)">
+                <button class="neo-btn" onclick="settingsModule.saveChat()">Simpan Issue ID</button>
+            </div>
+        </div>
+
+        <div class="modal-overlay" id="modal-create-acc">
+            <div class="modal-content">
+                <div style="display:flex; justify-content:space-between; margin-bottom:20px;"><h3>Buat Slot Invite</h3><i data-lucide="x" onclick="ui.closeModal('modal-create-acc')" style="cursor:pointer;"></i></div>
+                <input type="text" id="inv-user" class="neo-input selectable" placeholder="Username Target">
+                <select id="inv-role" class="neo-input selectable"><option value="developer">Developer</option><option value="owner">Owner</option><option value="member" selected>Member</option></select>
+                <input type="text" id="inv-expire" class="neo-input selectable" placeholder="Masa Aktif (hari) / 'permanen'">
+                <button class="neo-btn" onclick="settingsModule.createInvite()">Buat Undangan</button>
+            </div>
+        </div>
+        <!-- =================== DASHBOARD SCREENS =================== -->
+        
+        <!-- HOME MODULE (BUG 6 FIXED - Dashboard Kartu Grid) -->
+        <main id="screen-home" class="screen active">
+            <div class="neo-box glass-container" style="display:flex; justify-content:space-between; align-items:center; padding:16px;">
+                <div style="display:flex; align-items:center; gap:16px;">
+                    <img id="ui-avatar" src="" style="width:56px; height:56px; border-radius:50%; border:2px solid var(--border-color); object-fit:cover; background:#fff;">
+                    <div style="text-align:left;">
+                        <div style="font-weight:800; font-size:18px; display:flex; align-items:center; margin-bottom:6px;" id="ui-username">User</div>
+                        <span id="ui-role" style="font-size:10px; font-weight:800; background:var(--accent); color:#1a202c; padding:4px 12px; border-radius:12px; border:1px solid var(--border-color); text-transform:uppercase;">ROLE</span>
+                    </div>
+                </div>
+                <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
+                    <div style="display:flex; align-items:center; gap:4px; font-size:14px; font-weight:800;" id="ui-weather"><i data-lucide="sun"></i> --°C</div>
+                    <div style="background:#48bb78; color:#fff; padding:4px 10px; border-radius:12px; font-size:10px; font-weight:800; border:1px solid #276749;">● AKTIF</div>
+                </div>
+            </div>
+
+            <!-- Video Promo (BUG 5 FIXED) -->
+            <div class="neo-box glass-container" style="padding:0; overflow:hidden; line-height:0; background: #000; margin-bottom:20px;">
+                <video autoplay loop muted playsinline style="width:100%; height:auto;" id="home-vid-el">
+                    <source src="assets/nexabuild-intro.mp4" type="video/mp4">
+                </video>
+            </div>
+
+            <!-- DASHBOARD GRID CARDS -->
+            <div class="dash-grid">
+                <!-- Baris 1: Baterai & Jaringan -->
+                <div class="dash-row">
+                    <div class="dash-card">
+                        <div class="dash-badge" id="badge-batt">Normal</div>
+                        <i data-lucide="battery-charging"></i>
+                        <div class="dash-val" id="ind-batt">--%</div>
+                        <div class="dash-lbl">Baterai</div>
+                        <div class="progress-bar"><div class="progress-fill" id="bar-batt"></div></div>
+                    </div>
+                    <div class="dash-card">
+                        <div class="dash-badge" id="badge-net">Offline</div>
+                        <i data-lucide="wifi"></i>
+                        <div class="dash-val" id="ind-net">-- Mbps</div>
+                        <div class="dash-lbl">Koneksi</div>
+                        <div class="progress-bar"><div class="progress-fill" id="bar-net" style="background:#4fd1c5;"></div></div>
+                    </div>
+                </div>
+                <!-- Baris 2: Akun -->
+                <div class="dash-row">
+                    <div class="dash-card">
+                        <i data-lucide="users"></i>
+                        <div class="dash-val" id="stat-total-acc">--</div>
+                        <div class="dash-lbl">Total Akun</div>
+                    </div>
+                    <div class="dash-card">
+                        <i data-lucide="activity"></i>
+                        <div class="dash-val" style="color:#48bb78;" id="stat-active-acc">--</div>
+                        <div class="dash-lbl">Aktif (10m)</div>
+                    </div>
+                    <div class="dash-card">
+                        <div class="dash-badge" style="background:#48bb78; color:#fff;" id="badge-status">Active</div>
+                        <i data-lucide="shield-check"></i>
+                        <div class="dash-val" id="stat-acc-status" style="font-size:14px;">Permanent</div>
+                        <div class="dash-lbl">Status Akun</div>
+                    </div>
+                </div>
+                <!-- Baris 3: Memory -->
+                <div class="dash-row">
+                    <div class="dash-card">
+                        <i data-lucide="hard-drive"></i>
+                        <div class="dash-val" id="ind-store">-- MB</div>
+                        <div class="dash-lbl">Web Storage</div>
+                        <div class="progress-bar"><div class="progress-fill" id="bar-store" style="background:#f6ad55;"></div></div>
+                    </div>
+                    <div class="dash-card">
+                        <i data-lucide="cpu"></i>
+                        <div class="dash-val" id="ind-ram">-- GB</div>
+                        <div class="dash-lbl">RAM Device</div>
+                        <div class="progress-bar"><div class="progress-fill" id="bar-ram" style="background:#fc8181;"></div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Jam & Quran -->
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:20px;">
+                <div class="neo-box glass-container" style="margin:0; display:flex; align-items:center; justify-content:center; font-size:28px; font-weight:800; font-family:'Outfit';" id="home-clock">00:00</div>
+                <button class="neo-btn" style="margin:0; background:var(--primary); font-size:16px;" onclick="quranModule.openModal()">Al-Qur'an</button>
+            </div>
+        </main>
+
+        <!-- BUILD MODULE -->
+        <main id="screen-build" class="screen">
+            <!-- Header Grid Build -->
+            <div class="dash-grid">
+                <div class="dash-row">
+                    <div class="dash-card"><i data-lucide="folder"></i><div class="dash-val" id="build-total">--</div><div class="dash-lbl">Total Project</div></div>
+                    <div class="dash-card"><i data-lucide="check-circle"></i><div class="dash-val" style="color:#48bb78;" id="build-success">--</div><div class="dash-lbl">Sukses APK</div></div>
+                    <div class="dash-card"><i data-lucide="calendar"></i><div class="dash-val" style="font-size:14px;" id="build-date">--/--</div><div class="dash-lbl">Tanggal</div></div>
+                </div>
+            </div>
+            
+            <div class="neo-box glass-container" style="padding:0; overflow:hidden; line-height:0; height:120px; background: #000; margin-bottom:20px;">
+                <video autoplay loop muted playsinline style="width:100%; height:100%; object-fit:cover;" id="build-vid-el">
+                    <source src="assets/videos/anime-1.mp4" type="video/mp4">
+                </video>
+            </div>
+
+            <!-- Form Build Lengkap -->
+            <div class="neo-box glass-container">
+                <h3 style="margin-bottom: 16px;">Identitas Aplikasi</h3>
+                
+                <!-- BUG 8 FIXED - Toggle URL Input Terlihat -->
+                <div style="display:flex; border:var(--border-width) solid var(--border-color); border-radius:var(--border-radius); overflow:hidden; margin-bottom:16px;">
+                    <div class="neo-btn" style="flex:1; border:none; border-radius:0; box-shadow:none; background:var(--primary); color:#1a202c;" id="tab-src-zip" onclick="buildModule.switchSource('zip')">Upload ZIP</div>
+                    <div class="neo-btn" style="flex:1; border:none; border-radius:0; box-shadow:none; background:transparent; color:var(--text-muted);" id="tab-src-url" onclick="buildModule.switchSource('url')">URL Web</div>
+                </div>
+                
+                <div id="src-zip" class="file-upload-wrapper" style="margin-bottom:16px;">
+                    <button class="neo-btn" style="background:var(--surface);"><i data-lucide="folder-archive"></i> <span id="lbl-file">Pilih ZIP Project</span></button>
+                    <input type="file" id="build-file" accept=".zip" onchange="buildModule.handleFile(this)">
+                </div>
+                <div id="src-url" class="hidden" style="margin-bottom:16px;">
+                    <input type="url" id="build-url" class="neo-input selectable" placeholder="https://domain-anda.com" oninput="buildModule.validate()">
+                </div>
+
+                <input type="text" id="app-name" class="neo-input selectable" placeholder="Nama Aplikasi LENGKAP" oninput="buildModule.validate()">
+                <input type="text" id="app-short" class="neo-input selectable" placeholder="Nama Singkat (Ikon HP)">
+                <input type="text" id="app-id" class="neo-input selectable" placeholder="Package ID (com.domain.app)" oninput="buildModule.validate()">
+                
+                <div style="display:flex; gap:12px; margin-bottom:16px;">
+                    <input type="text" id="app-ver-name" class="neo-input selectable" placeholder="Versi (1.0.0)" style="margin:0;">
+                    <input type="number" id="app-ver-code" class="neo-input selectable" placeholder="Build Code (1)" style="margin:0;">
+                </div>
+
+                <div class="file-upload-wrapper">
+                    <button class="neo-btn" style="background:var(--surface);"><i data-lucide="image"></i> <span id="lbl-icon">Upload Icon (Generate All)</span></button>
+                    <input type="file" id="app-icon" accept="image/*" onchange="buildModule.handleIcon(this)">
+                </div>
+                <canvas id="icon-canvas" style="display:none;"></canvas>
+            </div>
+
+            <!-- Fitur Opsional Lengkap -->
+            <div class="neo-box glass-container">
+                <div style="display:flex; justify-content:center; align-items:center; gap:8px; cursor:pointer;" onclick="document.getElementById('opt-feat').classList.toggle('hidden')">
+                    <h3 style="margin:0;">Fitur Opsional Lengkap</h3><i data-lucide="chevron-down"></i>
+                </div>
+                <div id="opt-feat" class="hidden" style="margin-top:20px; border-top:1px solid var(--border-color); padding-top:20px; display:flex; flex-direction:column; gap:16px; text-align:left;">
+                    <div style="display:flex; justify-content:center; align-items:center; gap:16px;">
+                        <input type="color" id="app-color" value="#4fd1c5" style="width:48px; height:48px; border:var(--border-width) solid var(--border-color); border-radius:12px; padding:0; cursor:pointer;">
+                        <div style="text-align:left;"><b>Tema Warna</b><div style="font-size:11px; color:var(--text-muted);">Splash & StatusBar</div></div>
+                    </div>
+                    <select id="app-orient" class="neo-input"><option value="portrait">Orientasi: Portrait (Berdiri)</option><option value="landscape">Orientasi: Landscape (Miring)</option><option value="any">Orientasi: Auto/Bebas</option></select>
+                    <select id="app-net" class="neo-input"><option value="online">Mode: Online (WebView)</option><option value="offline">Mode: Offline (Local)</option></select>
+                    <input type="url" id="app-privacy" class="neo-input selectable" placeholder="Privacy Policy URL">
+                    
+                    <div style="background:rgba(0,0,0,0.05); padding:16px; border-radius:12px; border:1px solid var(--border-color);">
+                        <label style="display:flex; align-items:center; gap:12px; font-weight:600; margin-bottom:12px;"><input type="checkbox" id="app-push" style="transform:scale(1.3);"> Push Notification (FCM)</label>
+                        <label style="display:flex; align-items:center; gap:12px; font-weight:600; margin-bottom:12px;"><input type="checkbox" id="app-google" style="transform:scale(1.3);"> Social Login (Custom Tabs)</label>
+                        <label style="display:flex; align-items:center; gap:12px; font-weight:600; margin-bottom:12px;"><input type="checkbox" id="app-wake" style="transform:scale(1.3);"> Wake Lock (Layar Nyala)</label>
+                        <label style="display:flex; align-items:center; gap:12px; font-weight:600;"><input type="checkbox" id="app-cam" style="transform:scale(1.3);"> Izin Kamera (CAMERA)</label>
+                    </div>
+                    
+                    <div style="border-top:1px dashed var(--border-color); padding-top:16px; text-align:center;">
+                        <b style="display:block; margin-bottom:12px;">Opsi Navigasi WebView</b>
+                        <div style="display:flex; justify-content:center; gap:20px;">
+                            <label style="display:flex; align-items:center; gap:8px; font-weight:600;"><input type="checkbox" id="wv-zoom" checked style="transform:scale(1.2);"> Zoom</label>
+                            <label style="display:flex; align-items:center; gap:8px; font-weight:600;"><input type="checkbox" id="wv-ptr" checked style="transform:scale(1.2);"> Pull-Refresh</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BUG 9 FIXED - Teks tombol bersih -->
+            <button class="neo-btn" id="btn-build" style="background:var(--primary); color:#1a202c; font-size:18px; padding:16px; margin-bottom:20px;" disabled onclick="buildModule.start()">JALANKAN BUILD</button>
+
+            <!-- TERMINAL -->
+            <div class="terminal hidden" id="build-terminal">
+                <div class="term-header">
+                    <div style="display:flex; align-items:center; gap:8px; font-weight:800;"><i data-lucide="terminal" style="color:var(--primary);"></i> NexaTerminal Build</div>
+                    <span id="term-status" style="font-size:10px; background:#4a5568; color:#fff; padding:4px 10px; border-radius:12px; font-weight:800;">WAIT</span>
+                </div>
+                <div class="term-body selectable" id="term-logs"></div>
+            </div>
+            
+            <div class="neo-box hidden glass-container" id="build-dl-panel" style="margin-top:20px; background:rgba(72, 187, 120, 0.1); border-color:#48bb78;">
+                <h2 style="color:#2f855a; margin-bottom:16px;">Build Berhasil!</h2>
+                <a id="link-apk" href="#" target="_blank" class="neo-btn" style="background:#48bb78; color:#fff; text-decoration:none;">Install APK</a>
+                <a id="link-aab" href="#" target="_blank" class="neo-btn" style="background:#9ae6b4; color:#1a202c; text-decoration:none;">File AAB (Play Store)</a>
+            </div>
+        </main>
+
+        <!-- EDIT MODULE -->
+        <main id="screen-edit" class="screen">
+            <div id="edit-loading" style="text-align:center; padding:40px;"><div class="spinner" style="margin:auto;"></div></div>
+            <div id="edit-empty" class="hidden" style="text-align:center; padding:40px; color:var(--text-muted);">
+                <i data-lucide="inbox" style="width:64px; height:64px; margin-bottom:16px;"></i>
+                <h3 style="color:var(--text-muted);">Belum Ada Riwayat</h3>
+            </div>
+            <div id="edit-list" class="hidden" style="display:flex; flex-direction:column; gap:16px;"></div>
+        </main>
+
+        <!-- CHAT MODULE -->
+        <main id="screen-chat" class="screen">
+            <div style="display:flex; flex-direction:column; height: calc(100vh - 160px);">
+                <div class="neo-box glass-container selectable" id="chat-box" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:16px; margin-bottom:16px; padding:16px;">
+                    <div style="text-align:center; color:var(--text-muted); padding:20px;">Memuat obrolan global...</div>
+                </div>
+                <div style="display:flex; gap:12px;">
+                    <button class="neo-btn" style="width:auto; background:var(--surface);" onclick="ui.openModal('modal-attach')"><i data-lucide="paperclip"></i></button>
+                    <input type="text" id="chat-input" class="neo-input selectable" placeholder="Ketik pesan..." style="margin:0; text-align:left;" onkeypress="if(event.key==='Enter') chatModule.send()">
+                    <button class="neo-btn" style="width:auto;" onclick="chatModule.send()"><i data-lucide="send"></i></button>
+                </div>
+            </div>
+        </main>
+
+        <div class="modal-overlay" id="modal-attach">
+            <div class="modal-content" style="max-width:300px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:20px;"><h3>Kirim Gambar</h3><i data-lucide="x" onclick="ui.closeModal('modal-attach')" style="cursor:pointer;"></i></div>
+                <div class="file-upload-wrapper">
+                    <button class="neo-btn" style="background:var(--accent); color:#1a202c;">Pilih Dari Galeri</button>
+                    <input type="file" accept="image/*" onchange="chatModule.uploadImg(this)">
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-overlay" id="modal-quran">
+            <div class="modal-content">
+                <div class="top-bar" style="margin: 8px; position:relative; top:0; background:var(--primary); border-color:#2c7a7b;">
+                    <div style="display:flex; align-items:center; gap:12px;"><i data-lucide="arrow-left" style="cursor:pointer; color:#1a202c;" onclick="ui.closeModal('modal-quran')"></i><b style="font-size:18px; color:#1a202c;">Al-Qur'an Digital</b></div>
+                </div>
+                <div id="quran-container" style="flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:12px;"><div style="text-align:center; color:var(--text-muted); padding:20px;">Memuat data...</div></div>
+            </div>
+        </div>
+
+        <nav class="bottom-nav">
+            <div class="nav-item active" data-target="screen-home" onclick="ui.switchTab(this)"><i data-lucide="home"></i> Beranda</div>
+            <div class="nav-item" data-target="screen-build" onclick="ui.switchTab(this)"><i data-lucide="hammer"></i> Build</div>
+            <div class="nav-item" data-target="screen-edit" onclick="ui.switchTab(this)"><i data-lucide="edit-3"></i> Edit</div>
+            <div class="nav-item" data-target="screen-chat" onclick="ui.switchTab(this)"><i data-lucide="message-circle"></i> Chat</div>
+        </nav>
+    </div>
+    <script>
+        lucide.createIcons();
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+        const cryptoUtils = {
+            hash: async (text, salt) => {
+                const msgBuffer = new TextEncoder().encode(text + salt);
+                const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+                return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+            },
+            generateSalt: () => Math.random().toString(36).substring(2, 15)
+        };
+        const fileToBase64 = file => new Promise((res, rej) => {
+            const reader = new FileReader(); reader.onload = () => res(reader.result);
+            reader.onerror = rej; reader.readAsDataURL(file);
+        });
+
+        // --- MANAJEMEN VIDEO (BUG 3, 5, 7 FIXED) ---
+        const videoManager = {
+            glass: null, intro: null, home: null, build: null,
+            init: () => {
+                videoManager.glass = document.getElementById('glass-video');
+                videoManager.intro = document.getElementById('intro-vid-el');
+                videoManager.home = document.getElementById('home-vid-el');
+                videoManager.build = document.getElementById('build-vid-el');
+
+                // Jaga video glass tetap hidup saat di theme-glass
+                if(videoManager.glass) {
+                    videoManager.glass.addEventListener('pause', () => {
+                        if(document.body.classList.contains('theme-glass') && !document.hidden && document.getElementById('intro-screen').classList.contains('hidden')) {
+                            videoManager.glass.play().catch(()=>{});
+                        }
+                    });
+                }
+
+                document.addEventListener('visibilitychange', () => {
+                    if(document.hidden) {
+                        [videoManager.glass, videoManager.intro, videoManager.home, videoManager.build].forEach(v => { if(v) v.pause(); });
+                    } else {
+                        if(document.body.classList.contains('theme-glass') && videoManager.glass && document.getElementById('intro-screen').classList.contains('hidden')) videoManager.glass.play().catch(()=>{});
+                        if(!document.getElementById('intro-screen').classList.contains('hidden') && videoManager.intro) videoManager.intro.play().catch(()=>{});
+                        const active = document.querySelector('.nav-item.active');
+                        if(active) videoManager.handleTab(active.getAttribute('data-target'));
+                    }
+                });
+            },
+            handleTab: (target) => {
+                if(videoManager.home) target === 'screen-home' ? videoManager.home.play().catch(()=>{}) : videoManager.home.pause();
+                if(videoManager.build) target === 'screen-build' ? videoManager.build.play().catch(()=>{}) : videoManager.build.pause();
+            }
+        };
+
+        const ui = {
+            dialogCb: null,
+            alert: (msg, title="Info") => new Promise(res => { document.getElementById('dialog-title').innerText = title; document.getElementById('dialog-msg').innerText = msg; document.getElementById('btn-dialog-cancel').style.display = 'none'; ui.openModal('modal-dialog'); ui.dialogCb = res; }),
+            confirm: (msg, title="Konfirmasi") => new Promise(res => { document.getElementById('dialog-title').innerText = title; document.getElementById('dialog-msg').innerText = msg; document.getElementById('btn-dialog-cancel').style.display = 'block'; ui.openModal('modal-dialog'); ui.dialogCb = res; }),
+            resolveDialog: (res) => { ui.closeModal('modal-dialog'); if(ui.dialogCb) ui.dialogCb(res); ui.dialogCb = null; },
+            openModal: id => document.getElementById(id).classList.add('open'),
+            closeModal: id => document.getElementById(id).classList.remove('open'),
+            toggleDrawer: () => { const d = document.getElementById('drawer-overlay'); d.classList.toggle('open'); d.firstElementChild.style.left = d.classList.contains('open') ? '0' : '-100%'; },
+            switchAuthTab: (tab) => {
+                // Bug 2 Fixed: Pastikan display flex/block diset benar tanpa display:none konflik
+                if(tab === 'login') {
+                    document.getElementById('auth-login').classList.remove('hidden');
+                    document.getElementById('auth-register').classList.add('hidden');
+                    document.getElementById('tab-btn-login').style.borderBottomColor = 'var(--text-main)'; document.getElementById('tab-btn-login').style.color = 'var(--text-main)';
+                    document.getElementById('tab-btn-register').style.borderBottomColor = 'transparent'; document.getElementById('tab-btn-register').style.color = 'var(--text-muted)';
+                } else {
+                    document.getElementById('auth-login').classList.add('hidden');
+                    document.getElementById('auth-register').classList.remove('hidden');
+                    document.getElementById('tab-btn-login').style.borderBottomColor = 'transparent'; document.getElementById('tab-btn-login').style.color = 'var(--text-muted)';
+                    document.getElementById('tab-btn-register').style.borderBottomColor = 'var(--text-main)'; document.getElementById('tab-btn-register').style.color = 'var(--text-main)';
+                }
+            },
+            switchTab: (elem) => {
+                const target = elem.getAttribute('data-target');
+                document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+                document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+                elem.classList.add('active'); document.getElementById(target).classList.add('active');
+                
+                const titles = { 'screen-home': ['NexaBuild', 'Beranda'], 'screen-build': ['Build', 'Membangun aplikasi'], 'screen-edit': ['Edit History', 'Riwayat & ubah aplikasi'], 'screen-chat': ['GlobalChat', 'Obrolan bersama'] };
+                document.getElementById('top-title-en').innerText = titles[target][0]; document.getElementById('top-title-id').innerText = titles[target][1];
+                
+                videoManager.handleTab(target);
+                if(target === 'screen-edit') editModule.load();
+                if(target === 'screen-chat') chatModule.init();
+            },
+            applyTheme: (isGlass) => {
+                document.body.className = isGlass ? 'theme-glass' : 'theme-neo';
+                const gv = document.getElementById('glass-video');
+                if(isGlass && gv && document.getElementById('intro-screen').classList.contains('hidden')) gv.play().catch(()=>{}); else if(gv) gv.pause();
+                localStorage.setItem('nx_theme', isGlass?'glass':'neo');
+            }
+        };
+
+        const ghApi = {
+            async req(ep, opts={}) {
+                const token = localStorage.getItem('nx_gh_token'), url = ep.startsWith('http') ? ep : `https://api.github.com${ep}`;
+                const res = await fetch(url, { ...opts, headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json', ...(opts.headers||{}) }});
+                if(!res.ok) throw new Error(await res.text()); return res.status===204 ? true : await res.json();
+            },
+            async getFile(repo, path) { try { const d = await this.req(`/repos/${repo}/contents/${path}`); return { content: JSON.parse(decodeURIComponent(escape(atob(d.content)))), sha: d.sha }; } catch(e) { return { content: null, sha: null }; } },
+            async putFile(repo, path, obj, sha, msg) { const body = { message: msg, content: btoa(unescape(encodeURIComponent(JSON.stringify(obj, null, 2)))) }; if(sha) body.sha = sha; return await this.req(`/repos/${repo}/contents/${path}`, { method: 'PUT', body: JSON.stringify(body) }); }
+        };
+
+        const authModule = {
+            curr: null,
+            init: () => {
+                if(localStorage.getItem('nx_theme')==='glass') { document.getElementById('switch-theme').checked=true; ui.applyTheme(true); }
+                ui.switchAuthTab('login'); // Setup default tab
+                
+                // BUG 1 & 7 FIXED: Animasi stroke fingerprint nyata & Trigger audio
+                const fp = document.getElementById('fp-area'), fill = document.getElementById('fp-fill');
+                let timer, val=1000;
+                const start = async () => { 
+                    clearInterval(timer); 
+                    timer = setInterval(async () => { 
+                        val -= 40; fill.style.strokeDashoffset = val; 
+                        if(val <= 0) { 
+                            clearInterval(timer); 
+                            document.getElementById('gate-screen').classList.add('hidden'); 
+                            
+                            // Trigger Audio Unmute langsung dari interaksi
+                            if(videoManager.glass) videoManager.glass.muted = false;
+                            if(videoManager.intro) videoManager.intro.muted = false;
+
+                            if(localStorage.getItem('nx_user')) {
+                                authModule.restore();
+                            } else {
+                                document.getElementById('auth-screen').classList.remove('hidden');
+                            }
+                        } 
+                    }, 50); 
+                };
+                const end = () => { clearInterval(timer); val=1000; fill.style.strokeDashoffset = val; };
+                fp.addEventListener('touchstart', start); fp.addEventListener('touchend', end); fp.addEventListener('mousedown', start); fp.addEventListener('mouseup', end); fp.addEventListener('mouseleave', end);
+                
+                videoManager.init();
+            },
+            login: async () => {
+                const user = document.getElementById('login-user').value.trim(), pass = document.getElementById('login-pass').value;
+                if(!user||!pass) return ui.alert("Isi kredensial!");
+                const btn = document.getElementById('btn-login'); btn.innerText="Memproses..."; btn.disabled=true;
+                try {
+                    const repo = localStorage.getItem('nx_gh_repo');
+                    if(!repo) throw new Error("Aplikasi belum terkait Repo. Login awal harus via Daftar.");
+                    const db = await ghApi.getFile(repo, 'community/accounts.json');
+                    if(!db.content || !db.content[user]) throw new Error("Akun tidak ditemukan!");
+                    const acc = db.content[user];
+                    if(!acc.activated) throw new Error("Akun ini dilarang masuk.");
+                    const hash = await cryptoUtils.hash(pass, acc.passwordSalt);
+                    if(hash !== acc.passwordHash) throw new Error("Password salah!");
+                    acc.lastActiveAt = new Date().toISOString(); await ghApi.putFile(repo, 'community/accounts.json', db.content, db.sha, "Update lastActive");
+                    localStorage.setItem('nx_user', user); localStorage.setItem('nx_acc', JSON.stringify(acc));
+                    
+                    if(!localStorage.getItem('nx_intro')) authModule.showIntro(); else authModule.restore();
+                } catch(e) { ui.alert(e.message); } finally { btn.innerText="Masuk"; btn.disabled=false; }
+            },
+            register: async () => {
+                const user = document.getElementById('reg-user').value.trim(), pass = document.getElementById('reg-pass1').value, pass2 = document.getElementById('reg-pass2').value;
+                const token = document.getElementById('reg-gh-token').value.trim(), owner = document.getElementById('reg-gh-owner').value.trim(), repo = document.getElementById('reg-gh-repo').value.trim();
+                const avatarFile = document.getElementById('reg-avatar').files[0];
+                if(!user||!pass||!token||!owner||!repo) return ui.alert("Lengkapi field wajib!");
+                if(pass!==pass2) return ui.alert("Password beda!");
+                const btn = document.getElementById('btn-register'); btn.innerText="Mendaftar..."; btn.disabled=true;
+                try {
+                    const fullRepo = `${owner}/${repo}`;
+                    localStorage.setItem('nx_gh_token', token); localStorage.setItem('nx_gh_repo', fullRepo);
+                    const db = await ghApi.getFile(fullRepo, 'community/accounts.json');
+                    let accs = db.content || {}, isFirst = Object.keys(accs).length===0;
+                    if(accs[user] && accs[user].activated) throw new Error("Username sudah ada.");
+                    
+                    let role="member", verified=false, badge=null;
+                    if(isFirst){ role="developer"; verified=true; badge="lemon"; } else if(accs[user]){ role=accs[user].role; }
+                    
+                    const salt = cryptoUtils.generateSalt(), hash = await cryptoUtils.hash(pass, salt);
+                    let avatar = avatarFile ? await fileToBase64(avatarFile) : null;
+                    
+                    // BUG 2 FIXED: Pastikan activated diset TRUE
+                    accs[user] = { passwordHash: hash, passwordSalt: salt, avatar, role, verified, verifiedBadge: badge, activated: true, buildsThisWeek: 0, weekResetAt: new Date().toISOString(), lastActiveAt: new Date().toISOString(), expiresAt: (accs[user]||{}).expiresAt||null };
+                    await ghApi.putFile(fullRepo, 'community/accounts.json', accs, db.sha, "Register user");
+                    localStorage.setItem('nx_user', user); localStorage.setItem('nx_acc', JSON.stringify(accs[user]));
+                    authModule.showIntro();
+                } catch(e) { ui.alert(e.message); localStorage.removeItem('nx_gh_token'); } finally { btn.innerText="Daftar Akun"; btn.disabled=false; }
+            },
+            showIntro: () => {
+                document.getElementById('auth-screen').classList.add('hidden');
+                document.getElementById('intro-screen').classList.remove('hidden');
+                // BUG 3 FIXED: Matikan background audio tema
+                if(videoManager.glass) videoManager.glass.pause();
+                if(videoManager.intro) {
+                    videoManager.intro.muted = false;
+                    videoManager.intro.play().catch(()=>{});
+                }
+            },
+            finishIntro: () => { 
+                localStorage.setItem('nx_intro', '1'); 
+                document.getElementById('intro-screen').classList.add('hidden'); 
+                if(videoManager.intro) videoManager.intro.pause();
+                authModule.restore(); 
+            },
+            restore: () => {
+                document.getElementById('auth-screen').classList.add('hidden'); document.getElementById('intro-screen').classList.add('hidden');
+                document.getElementById('gate-screen').classList.add('hidden'); document.getElementById('main-app').classList.remove('hidden');
+                
+                authModule.curr = JSON.parse(localStorage.getItem('nx_acc'));
+                
+                const getSeal = acc => acc.verified ? `<svg viewBox="0 0 24 24" class="verified-seal ${acc.verifiedBadge==='lemon'?'seal-lemon':'seal-blue'}"><use href="#icon-verified-seal"></use></svg>` : '';
+                document.getElementById('ui-username').innerHTML = `${localStorage.getItem('nx_user')} ${getSeal(authModule.curr)}`;
+                document.getElementById('ui-role').innerText = authModule.curr.role;
+                if(authModule.curr.role === 'developer') { document.getElementById('dev-menu-area').classList.remove('hidden'); }
+                document.getElementById('ui-avatar').src = authModule.curr.avatar || 'data:image/svg+xml;utf8,<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="%23cbd5e0"/></svg>';
+                
+                if(document.body.classList.contains('theme-glass') && videoManager.glass) videoManager.glass.play().catch(()=>{});
+                homeModule.init(); buildModule.init();
+            },
+            logout: async () => { 
+                if(await ui.confirm("Keluar dari dashboard?")){ 
+                    localStorage.removeItem('nx_user'); localStorage.removeItem('nx_acc'); 
+                    location.reload(); // Bug 2 Fixed: Reload menjamin clean DOM
+                } 
+            }
+        };
+
+        const homeModule = {
+            init: () => {
+                setInterval(()=>{ document.getElementById('home-clock').innerText = new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}); }, 1000);
+                document.getElementById('stat-date').innerText = new Date().toLocaleDateString('id-ID');
+                
+                fetch('https://api.open-meteo.com/v1/forecast?latitude=-6.2&longitude=106.8&current_weather=true').then(r=>r.json()).then(d=>{ document.getElementById('ui-weather').innerHTML = `<i data-lucide="sun"></i> ${d.current_weather.temperature}°C`; lucide.createIcons(); }).catch(()=>{});
+                
+                // BUG 6 FIXED - Real data dengan bar pengisi
+                if('getBattery' in navigator){ navigator.getBattery().then(b=>{ const upd = ()=> {
+                    const lvl = Math.round(b.level*100);
+                    document.getElementById('ind-batt').innerText = `${lvl}%`;
+                    document.getElementById('bar-batt').style.width = `${lvl}%`;
+                    document.getElementById('badge-batt').innerText = b.charging ? 'Charging' : 'Normal';
+                }; upd(); b.onlevelchange = upd; b.onchargingchange = upd; });}
+                
+                if(navigator.connection) {
+                    const conn = navigator.connection;
+                    document.getElementById('ind-net').innerText = `${conn.downlink} Mbps`;
+                    document.getElementById('badge-net').innerText = conn.effectiveType.toUpperCase();
+                    document.getElementById('badge-net').style.background = '#48bb78'; document.getElementById('badge-net').style.color = '#fff';
+                    document.getElementById('bar-net').style.width = '100%';
+                }
+                
+                if('storage' in navigator && 'estimate' in navigator.storage) navigator.storage.estimate().then(e=>{ 
+                    const max = 100 * 1024 * 1024; // Estimasi kuota browser (100MB)
+                    const perc = Math.min((e.usage / max) * 100, 100);
+                    document.getElementById('ind-store').innerText = (e.usage/(1024*1024)).toFixed(1)+" MB"; 
+                    document.getElementById('bar-store').style.width = `${perc}%`;
+                });
+                
+                if(navigator.deviceMemory) {
+                    const ram = navigator.deviceMemory;
+                    document.getElementById('ind-ram').innerText = `${ram} GB`;
+                    document.getElementById('bar-ram').style.width = `${(ram/8)*100}%`; // Asusmi 8GB = 100% merah
+                }
+                
+                const acc = authModule.curr;
+                if(acc.expiresAt) {
+                    const days = Math.ceil((new Date(acc.expiresAt) - new Date()) / (1000*60*60*24));
+                    document.getElementById('stat-acc-status').innerText = `Trial ${days} Hr`;
+                    document.getElementById('badge-status').innerText = 'Trial'; document.getElementById('badge-status').style.background = '#ecc94b';
+                }
+
+                homeModule.fetchStats(); setInterval(homeModule.fetchStats, 60000);
+            },
+            fetchStats: async () => {
+                try {
+                    const db = await ghApi.getFile(localStorage.getItem('nx_gh_repo'), 'community/accounts.json');
+                    if(db.content) {
+                        const accs = Object.values(db.content); document.getElementById('stat-total-acc').innerText = accs.length;
+                        document.getElementById('stat-active-acc').innerText = accs.filter(a => a.lastActiveAt && (new Date() - new Date(a.lastActiveAt)) < 600000).length;
+                    }
+                } catch(e){}
+            }
+        };
+
+        const quranModule = {
+            surahs: [],
+            openModal: async () => {
+                ui.openModal('modal-quran'); const c = document.getElementById('quran-container');
+                if(quranModule.surahs.length > 0) return quranModule.renderList();
+                try { quranModule.surahs = (await (await fetch('https://api.alquran.cloud/v1/surah')).json()).data; quranModule.renderList(); } catch(e){ c.innerHTML = "Gagal memuat API"; }
+            },
+            renderList: () => { document.getElementById('quran-container').innerHTML = quranModule.surahs.map(s => `<div class="neo-box glass-container" style="padding:16px; display:flex; justify-content:space-between; cursor:pointer;" onclick="quranModule.loadSurah(${s.number}, '${s.englishName}')"><div style="text-align:left;"><b>${s.number}. ${s.englishName}</b><br><small style="color:var(--text-muted);">${s.numberOfAyahs} Ayat</small></div><div style="font-family:serif; font-size:24px;">${s.name}</div></div>`).join(''); },
+            loadSurah: async (num, name) => {
+                const c = document.getElementById('quran-container'); c.innerHTML = '<div class="spinner" style="margin:auto;"></div>';
+                try {
+                    const [resAr, resId] = await Promise.all([fetch(`https://api.alquran.cloud/v1/surah/${num}`), fetch(`https://api.alquran.cloud/v1/surah/${num}/id.indonesian`)]);
+                    const dataAr = await resAr.json(), dataId = await resId.json();
+                    let html = `<button class="neo-btn" style="margin-bottom:16px; background:var(--surface);" onclick="quranModule.renderList()">Kembali</button><h2 style="margin-bottom:20px;">${name}</h2>`;
+                    dataAr.data.ayahs.forEach((a, i) => { html += `<div class="neo-box glass-container selectable" style="padding:20px;"><div style="text-align:right; font-size:26px; font-family:serif; margin-bottom:16px; line-height:1.6;">${a.text}</div><div style="font-size:14px; color:var(--text-muted); text-align:left;"><b>${a.numberInSurah}.</b> ${dataId.data.ayahs[i].text}</div></div>`; });
+                    c.innerHTML = html;
+                } catch(e){ c.innerHTML = "Gagal memuat ayat"; }
+            }
+        };
+
+        const buildModule = {
+            srcType: 'zip', iconB64: null, pType: null,
+            init: async () => {
+                document.getElementById('build-date').innerText = new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'2-digit'});
+                try {
+                    const db = await ghApi.getFile(localStorage.getItem('nx_gh_repo'), 'builds.json');
+                    if(db.content) {
+                        document.getElementById('build-total').innerText = db.content.length;
+                        document.getElementById('build-success').innerText = db.content.filter(b=>b.status==='success').length;
+                        if(db.content.length > 0) document.getElementById('app-ver-code').value = db.content.length + 1;
+                    }
+                } catch(e){ document.getElementById('build-total').innerText="0"; document.getElementById('build-success').innerText="0"; }
+            },
+            switchSource: (type) => {
+                buildModule.srcType = type;
+                document.getElementById('src-zip').style.display = type==='zip'?'block':'none'; document.getElementById('src-url').style.display = type==='url'?'block':'none';
+                document.getElementById('tab-src-zip').style.background = type==='zip'?'var(--primary)':'transparent'; document.getElementById('tab-src-zip').style.color = type==='zip'?'#1a202c':'var(--text-muted)';
+                document.getElementById('tab-src-url').style.background = type==='url'?'var(--primary)':'transparent'; document.getElementById('tab-src-url').style.color = type==='url'?'#1a202c':'var(--text-muted)';
+                buildModule.validate();
+            },
+            validate: () => {
+                const n = document.getElementById('app-name').value.trim(), i = document.getElementById('app-id').value.trim(), validId = /^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+[0-9a-z_]$/i.test(i);
+                let srcValid = false;
+                if(buildModule.srcType==='zip' && document.getElementById('build-file').files[0] && buildModule.pType) srcValid = true;
+                if(buildModule.srcType==='url' && document.getElementById('build-url').value.trim().startsWith('http')) { srcValid = true; buildModule.pType = 'url'; }
+                document.getElementById('btn-build').disabled = !(n && validId && srcValid);
+            },
+            handleFile: async (el) => {
+                const f = el.files[0]; if(!f) return; document.getElementById('lbl-file').innerText = f.name;
+                try {
+                    const zip = await JSZip.loadAsync(f), files = Object.keys(zip.files);
+                    if(files.some(x=>x.includes('pubspec.yaml'))) buildModule.pType='flutter'; else if(files.some(x=>x.includes('capacitor.config'))) buildModule.pType='capacitor'; else buildModule.pType='html';
+                    ui.alert(`Terdeteksi: ${buildModule.pType.toUpperCase()}`); buildModule.validate();
+                } catch(e) { ui.alert("File ZIP rusak."); }
+            },
+            handleIcon: async (el) => {
+                const f = el.files[0]; if(!f) return; document.getElementById('lbl-icon').innerText = "Icon Siap";
+                const img = new Image(); img.src = await fileToBase64(f);
+                img.onload = () => { const cvs = document.getElementById('icon-canvas'); cvs.width=128; cvs.height=128; cvs.getContext('2d').drawImage(img,0,0,128,128); buildModule.iconB64 = cvs.toDataURL('image/png'); };
+            },
+            start: async () => {
+                const repo = localStorage.getItem('nx_gh_repo'), btn = document.getElementById('btn-build'); btn.disabled = true; document.getElementById('build-terminal').classList.remove('hidden'); document.getElementById('term-logs').innerHTML = "";
+                const log = (msg, col='#fff') => { document.getElementById('term-logs').innerHTML += `<div style="color:${col}; margin-bottom:6px;">${msg}</div>`; document.getElementById('term-logs').scrollTop = document.getElementById('term-logs').scrollHeight; };
+                log("> Mempersiapkan Engine & Verifikasi Kredensial...");
+                try {
+                    const py = { ref: 'main', inputs: { project_type: buildModule.pType, app_name: document.getElementById('app-name').value, app_id: document.getElementById('app-id').value, version_name: document.getElementById('app-ver-name').value || "1.0.0", version_code: document.getElementById('app-ver-code').value || "1" }};
+                    await ghApi.req(`/repos/${repo}/actions/workflows/build.yml/dispatches`, { method:'POST', body:JSON.stringify(py) });
+                    log("> Workflow aktif. Menunggu Server Runner GitHub...", "#4fd1c5"); buildModule.poll(repo);
+                } catch(e){ log("> Error: "+e.message, "#fc8181"); btn.disabled=false; }
+            },
+            poll: async (repo) => {
+                let runId = null, logsEl = document.getElementById('term-logs');
+                for(let i=0;i<12;i++){ await sleep(3000); try { const d = await ghApi.req(`/repos/${repo}/actions/runs?event=workflow_dispatch&per_page=1`); if(d.workflow_runs.length>0 && new Date(d.workflow_runs[0].created_at) > new Date(Date.now()-60000)){ runId = d.workflow_runs[0].id; break; } } catch(e){} }
+                if(!runId) { logsEl.innerHTML += "<div style='color:#fc8181'>> Timeout: GitHub sibuk. Coba lagi.</div>"; return; }
+                document.getElementById('term-status').innerText = "RUNNING"; document.getElementById('term-status').style.background = "#d69e2e";
+                
+                let done = false, seenSteps = new Set();
+                while(!done) {
+                    await sleep(4000);
+                    try {
+                        const run = await ghApi.req(`/repos/${repo}/actions/runs/${runId}`), jobs = await ghApi.req(`/repos/${repo}/actions/runs/${runId}/jobs`);
+                        if(jobs.jobs[0]) {
+                            jobs.jobs[0].steps.forEach(s => {
+                                const key = s.name+s.status;
+                                if(!seenSteps.has(key)) {
+                                    seenSteps.add(key); let c = '#fff', sym='-';
+                                    if(s.status==='completed') { c = s.conclusion==='success'?'#48bb78':'#fc8181'; sym=s.conclusion==='success'?'✓':'✗'; } else if(s.status==='in_progress') { c='#ecc94b'; sym='>'; }
+                                    logsEl.innerHTML += `<div style="color:${c}">[${sym}] ${s.name}</div>`; logsEl.scrollTop = logsEl.scrollHeight;
+                                }
+                            });
+                        }
+                        if(run.status === 'completed') {
+                            done = true; document.getElementById('term-status').innerText = run.conclusion.toUpperCase();
+                            if(run.conclusion === 'success') {
+                                document.getElementById('term-status').style.background = "#48bb78";
+                                const rels = await ghApi.req(`/repos/${repo}/releases`);
+                                if(rels[0] && rels[0].assets) {
+                                    const apk = rels[0].assets.find(a=>a.name.endsWith('.apk')), aab = rels[0].assets.find(a=>a.name.endsWith('.aab'));
+                                    document.getElementById('build-dl-panel').classList.remove('hidden');
+                                    if(apk) document.getElementById('link-apk').href = apk.browser_download_url; if(aab) document.getElementById('link-aab').href = aab.browser_download_url;
+                                }
+                                const db = await ghApi.getFile(repo, 'builds.json'); let builds = db.content || [];
+                                builds.unshift({ id: document.getElementById('app-id').value, name: document.getElementById('app-name').value, type: buildModule.pType, date: new Date().toISOString(), icon: buildModule.iconB64, status: 'success' });
+                                await ghApi.putFile(repo, 'builds.json', builds, db.sha, "Save history");
+                            } else { document.getElementById('term-status').style.background = "#fc8181"; }
+                            document.getElementById('btn-build').disabled = false;
+                        }
+                    } catch(e){}
+                }
+            }
+        };
+
+        const editModule = {
+            load: async () => {
+                document.getElementById('edit-loading').classList.remove('hidden'); document.getElementById('edit-empty').classList.add('hidden'); document.getElementById('edit-list').classList.add('hidden');
+                try {
+                    const db = await ghApi.getFile(localStorage.getItem('nx_gh_repo'), 'builds.json'); document.getElementById('edit-loading').classList.add('hidden');
+                    if(!db.content || db.content.length===0) document.getElementById('edit-empty').classList.remove('hidden');
+                    else {
+                        document.getElementById('edit-list').innerHTML = db.content.map(b => `<div class="neo-box glass-container" style="display:flex; align-items:center; gap:16px; cursor:pointer;" onclick="editModule.open('${b.id}')"><img src="${b.icon||''}" style="width:56px; height:56px; border-radius:12px; background:#fff; border:1px solid var(--border-color); object-fit:cover;"><div style="flex:1; text-align:left;"><div style="font-weight:800; font-size:16px;">${b.name}</div><div style="font-size:11px; opacity:0.7;">${b.id} • ${new Date(b.date).toLocaleDateString()}</div></div><i data-lucide="chevron-right"></i></div>`).join('');
+                        lucide.createIcons(); document.getElementById('edit-list').classList.remove('hidden');
+                    }
+                } catch(e){ document.getElementById('edit-loading').classList.add('hidden'); document.getElementById('edit-empty').classList.remove('hidden'); }
+            },
+            open: async (id) => {
+                const db = await ghApi.getFile(localStorage.getItem('nx_gh_repo'), 'builds.json'), app = db.content.find(a=>a.id===id);
+                if(app) {
+                    document.getElementById('app-name').value = app.name; document.getElementById('app-id').value = app.id; buildModule.pType = app.type; buildModule.iconB64 = app.icon;
+                    document.querySelector('.nav-item[data-target="screen-build"]').click(); ui.alert("Data dimuat ke form Build. Pilih ulang ZIP untuk update.");
+                }
+            }
+        };
+
+        const chatModule = {
+            init: () => { chatModule.load(); setInterval(chatModule.load, 8000); },
+            load: async () => {
+                try {
+                    const issue = localStorage.getItem('nx_chat_issue') || '1', comments = await ghApi.req(`/repos/${localStorage.getItem('nx_gh_repo')}/issues/${issue}/comments`);
+                    let html = '';
+                    comments.forEach(c => {
+                        let meta = { user: c.user.login, role: '?', verified: false }, body = c.body;
+                        if(body.startsWith('<!--nx:')){ const end = body.indexOf('-->'); try { meta=JSON.parse(body.substring(7,end)); body=body.substring(end+3); }catch(e){} }
+                        const isMe = meta.user === localStorage.getItem('nx_user');
+                        html += `<div class="chat-bubble ${isMe?'me':'other'} selectable">${!isMe ? `<div style="font-size:10px; margin-bottom:6px; font-weight:800; display:flex; align-items:center; gap:6px;"><img src="${meta.avatar||''}" style="width:18px; height:18px; border-radius:50%; background:#fff;"> ${meta.user} ${meta.verified?`<svg class="verified-seal ${meta.badge==='lemon'?'seal-lemon':'seal-blue'}"><use href="#icon-verified-seal"></use></svg>`:''} <span class="role-capsule" style="background:#4a5568; color:#fff;">${meta.role}</span></div>` : ''}<div style="font-size:13px; line-height:1.5;">${body.replace(/\n/g,'<br>')}</div></div>`;
+                    });
+                    const box = document.getElementById('chat-box'), atBot = box.scrollHeight - box.scrollTop <= box.clientHeight+50;
+                    box.innerHTML = html || "<div style='text-align:center; opacity:0.5; padding:20px;'>Belum ada pesan.</div>";
+                    if(atBot) box.scrollTop = box.scrollHeight;
+                } catch(e){}
+            },
+            send: async () => {
+                const inp = document.getElementById('chat-input'), text = inp.value.trim(); if(!text) return; inp.value='';
+                const a = authModule.curr, meta = { user: localStorage.getItem('nx_user'), role: a.role, verified: a.verified, badge: a.verifiedBadge, avatar: a.avatar }, body = `<!--nx:${JSON.stringify(meta)}-->\n${text}`;
+                try { await ghApi.req(`/repos/${localStorage.getItem('nx_gh_repo')}/issues/${localStorage.getItem('nx_chat_issue')||'1'}/comments`, { method: 'POST', body: JSON.stringify({body}) }); chatModule.load(); } catch(e){ ui.alert("Gagal kirim"); }
+            },
+            uploadImg: async (el) => {
+                if(!el.files[0]) return; ui.closeModal('modal-attach'); ui.alert("Memproses gambar...");
+                const img = new Image(); img.src = await fileToBase64(el.files[0]);
+                img.onload = () => {
+                    const cvs = document.createElement('canvas'), ctx = cvs.getContext('2d'); let w = img.width, h = img.height, max = 400; if(w>max){ h*=(max/w); w=max; }
+                    cvs.width=w; cvs.height=h; ctx.drawImage(img,0,0,w,h); document.getElementById('chat-input').value = `![image](${cvs.toDataURL('image/jpeg',0.7)})`;
+                    chatModule.send(); ui.closeModal('modal-dialog');
+                };
+            }
+        };
+
+        const settingsModule = {
+            saveGitHub: () => { localStorage.setItem('nx_gh_token', document.getElementById('cfg-gh-token').value); localStorage.setItem('nx_gh_repo', `${document.getElementById('cfg-gh-owner').value}/${document.getElementById('cfg-gh-repo').value}`); ui.alert("Berhasil disimpan."); ui.closeModal('modal-github'); },
+            saveChat: () => { localStorage.setItem('nx_chat_issue', document.getElementById('cfg-chat-issue').value); ui.alert("Disimpan."); ui.closeModal('modal-chat-config'); chatModule.load(); },
+            updateAvatar: async (el) => {
+                if(!el.files[0]) return; const b64 = await fileToBase64(el.files[0]), a = authModule.curr; a.avatar = b64;
+                try {
+                    const repo = localStorage.getItem('nx_gh_repo'), db = await ghApi.getFile(repo, 'community/accounts.json'); db.content[localStorage.getItem('nx_user')] = a;
+                    await ghApi.putFile(repo, 'community/accounts.json', db.content, db.sha, "Update avatar"); localStorage.setItem('nx_acc', JSON.stringify(a));
+                    document.getElementById('ui-avatar').src = b64; document.getElementById('cfg-avatar-img').src = b64; ui.alert("Avatar diperbarui.");
+                } catch(e){ ui.alert("Gagal update avatar"); }
+            },
+            createInvite: async () => {
+                const usr = document.getElementById('inv-user').value.trim(), r = document.getElementById('inv-role').value, exp = document.getElementById('inv-expire').value; if(!usr) return ui.alert("Isi username!");
+                try {
+                    const repo = localStorage.getItem('nx_gh_repo'), db = await ghApi.getFile(repo, 'community/accounts.json');
+                    if(db.content && db.content[usr]) return ui.alert("Username sudah ada/direservasi.");
+                    let eDate = null; if(exp && exp.toLowerCase()!=='permanen' && !isNaN(exp)) { eDate = new Date(); eDate.setDate(eDate.getDate()+parseInt(exp)); eDate = eDate.toISOString(); }
+                    const obj = db.content || {}; obj[usr] = { activated: false, role: r, expiresAt: eDate, createdBy: localStorage.getItem('nx_user') };
+                    await ghApi.putFile(repo, 'community/accounts.json', obj, db.sha, `Invite slot ${usr}`);
+                    ui.alert(`Slot [${usr}] berhasil dibuat.`); ui.closeModal('modal-create-acc');
+                } catch(e){ ui.alert("Gagal buat slot."); }
+            }
+        };
+
+        window.onload = authModule.init;
+    </script>
+</body>
+</html>
